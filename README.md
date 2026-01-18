@@ -1,193 +1,246 @@
-# Claude Desktop Bridge v0.6.0 🌉
+# Desktop Bridge for Claude 🌉
 
-A bridge application that enables Claude to see the computer screen, execute commands, and interact with GUI applications.
+> Give Claude the ability to see and control your computer
 
-## 🚀 Key Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-- ✅ **Accessibility API** - Click UI elements by name, no coordinate guessing!
-- ✅ **Smart Screenshots** - JPEG, auto-resize (2-4 MB → 30-40 KB)
-- ✅ **Coordinate Conversion** - Automatic calculation for Retina/HiDPI displays
-- ✅ **Window Management** - Move/resize windows without mouse
-- ✅ **Terminal Integration** - Conda/venv/everything works
-- ✅ **Unicode Support** - Full international character support
-- ✅ **Cross-platform** - macOS + Windows
+**⚠️ Disclaimer:** This is a community project, not affiliated with or endorsed by Anthropic.
 
-## 📦 Installation
+---
+
+## What is this?
+
+Claude is incredibly capable but can't interact with your computer directly. This bridge changes that.
+
+Write a command in `command.json` → Bridge executes it → Result appears in `result.json`
+
+**Claude can now:**
+- 📸 Take screenshots and see your screen
+- 🖱️ Click, type, scroll, drag
+- 🪟 Manage windows
+- 🌐 Automate browsers with Selenium
+- 💻 Run terminal commands
+- 🎯 Click UI elements by name (Accessibility API)
+
+---
+
+## Quick Start
 
 ```bash
+# Clone
+git clone https://github.com/iykivar/claude_desktop_bridge.git
 cd claude_desktop_bridge
 
-# Virtual environment
+# Setup
 python -m venv venv
-source venv/bin/activate  # macOS/Linux
-# venv\Scripts\activate   # Windows
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 
-# Dependencies
+# Install
 pip install -r requirements.txt
-```
 
-### macOS Permissions
-
-System Preferences → Security & Privacy → Privacy:
-- **Screen Recording** → Allow Terminal
-- **Accessibility** → Allow Terminal
-
-## 🎯 Usage
-
-```bash
+# Run
 python bridge.py
 ```
 
-Claude writes commands to `command.json`, Bridge processes them and writes results to `result.json`.
+---
 
-## 📋 All Commands
+## Architecture
 
-### 🖼️ Screenshot
+```
+┌─────────────┐     command.json      ┌─────────────┐
+│   Claude    │ ──────────────────▶   │   Bridge    │
+│  (claude.ai │                       │  (Python)   │
+│  or Desktop)│ ◀──────────────────   │             │
+└─────────────┘     result.json       └─────────────┘
+                                            │
+                    ┌───────────────────────┼───────────────────────┐
+                    ▼                       ▼                       ▼
+              ┌──────────┐           ┌──────────┐            ┌──────────┐
+              │screenshot│           │  mouse   │            │   web    │
+              │ keyboard │           │  window  │            │ (Selenium)│
+              │  system  │           │accessibility│          │          │
+              └──────────┘           └──────────┘            └──────────┘
+```
 
+**Plugin-based design** - Easy to extend, each plugin handles specific actions.
+
+---
+
+## Plugins & Actions
+
+### 📸 Screenshot
 ```json
 {"action": "screenshot", "params": {"mode": "full"}}
 {"action": "screenshot", "params": {"mode": "window"}}
 {"action": "screenshot", "params": {"mode": "region", "x": 0, "y": 0, "w": 800, "h": 600}}
 ```
-
-### 🎯 Accessibility API (NEW!)
-
-```json
-// List UI elements - name, position, size
-{"action": "get_ui_elements", "params": {"app": "python"}}
-
-// Click by name - no coordinates needed!
-{"action": "click_element", "params": {"app": "python", "element": "Start"}}
-```
-
-**Result:**
-```json
-{
-  "elements": [
-    {"type": "button", "name": "▶ Start", "center": {"x": 1895, "y": 296}},
-    {"type": "button", "name": "⏹ Stop", "center": {"x": 2037, "y": 296}},
-    {"type": "checkbox", "name": "Debug Mode", "checked": true}
-  ]
-}
-```
+- Auto-resizes to 1000px width
+- JPEG compression (65% quality)
+- Typical size: 40-80 KB
 
 ### 🖱️ Mouse
-
 ```json
-// Normal click
 {"action": "click", "params": {"x": 500, "y": 300}}
-
-// Click with screenshot coordinates (auto conversion)
-{"action": "click", "params": {"x": 195, "y": 117, "screenshot_coords": true}}
-
-// Double click
 {"action": "click", "params": {"x": 500, "y": 300, "clicks": 2}}
-
-// Drag
 {"action": "drag", "params": {"start_x": 100, "start_y": 100, "end_x": 500, "end_y": 300}}
-
-// Scroll
 {"action": "scroll", "params": {"amount": -3}}
 ```
 
 ### ⌨️ Keyboard
-
 ```json
-// Type text (Unicode supported)
-{"action": "type", "params": {"text": "Hello World! 🎉"}}
-
-// Key/shortcut
+{"action": "type", "params": {"text": "Hello World! Türkçe 🎉"}}
 {"action": "key", "params": {"key": "enter"}}
-{"action": "key", "params": {"key": "cmd+c"}}
+{"action": "key", "params": {"key": "ctrl+c"}}
 ```
+- Full Unicode support via clipboard
 
 ### 🪟 Window Management
-
 ```json
-// Move window (no mouse!)
-{"action": "window_move", "params": {"app": "TextEdit", "x": 100, "y": 100}}
-
-// Resize window
-{"action": "window_resize", "params": {"app": "TextEdit", "width": 800, "height": 600}}
-
-// List open windows
 {"action": "windows_list", "params": {}}
-
-// Scroll in app (no screenshot needed)
-{"action": "scroll_app", "params": {"app": "Claude", "amount": -3}}
+{"action": "window_move", "params": {"app": "Notepad", "x": 100, "y": 100}}
+{"action": "window_resize", "params": {"app": "Notepad", "width": 800, "height": 600}}
 ```
 
-### 💻 Command Execution
-
+### 🎯 Accessibility API
 ```json
-// Simple command
-{"action": "run", "params": {"command": "ls -la", "cwd": "/path/to/dir"}}
-
-// Run in Terminal (conda/venv works!)
-{"action": "terminal_run", "params": {
-    "command": "conda activate myenv && python main.py",
-    "cwd": "/path/to/project"
-}}
+{"action": "get_ui_elements", "params": {"app": "Notepad"}}
+{"action": "click_element", "params": {"app": "Notepad", "element": "Save"}}
 ```
+- Click buttons by name, no coordinates needed!
+- Works with native applications
 
-### ℹ️ System Info
-
+### 💻 System / Terminal
 ```json
-{"action": "screen", "params": {}}
+{"action": "run", "params": {"command": "dir", "cwd": "C:/Projects"}}
+{"action": "terminal_run", "params": {"command": "npm start", "cwd": "C:/Projects/app"}}
 {"action": "status", "params": {}}
 ```
 
-## 📁 File Structure
+### 🌐 Web / Selenium
+```json
+{"action": "web_open", "params": {"url": "https://example.com"}}
+{"action": "web_click", "params": {"selector": "#login-btn", "by": "css"}}
+{"action": "web_type", "params": {"selector": "input[name='email']", "text": "test@example.com"}}
+{"action": "web_screenshot", "params": {"filename": "page.jpg"}}
+{"action": "web_source", "params": {}}
+{"action": "web_execute", "params": {"script": "return document.title"}}
+{"action": "web_close", "params": {}}
+```
+- Full browser automation
+- JS-rendered content support
+- Screenshots auto-compressed like native
+
+### 📋 Task System
+```json
+{"action": "list_tasks", "params": {}}
+{"action": "run_task", "params": {"task": "my_workflow"}}
+```
+Save multi-step workflows as JSON in `tasks/` folder.
+
+---
+
+## Example: Web Scraping
+
+```json
+// 1. Open site
+{"action": "web_open", "params": {"url": "https://books.example.com"}}
+
+// 2. Wait for content
+{"action": "web_wait", "params": {"selector": ".book-card", "timeout": 10}}
+
+// 3. Extract data with JavaScript
+{"action": "web_execute", "params": {
+  "script": "return JSON.stringify([...document.querySelectorAll('.book-card')].map(el => ({title: el.querySelector('h3').innerText, price: el.querySelector('.price').innerText})))"
+}}
+
+// 4. Screenshot for reference
+{"action": "web_screenshot", "params": {"filename": "books.jpg"}}
+
+// 5. Close browser
+{"action": "web_close", "params": {}}
+```
+
+---
+
+## Platform Support
+
+| Feature | Windows | macOS |
+|---------|---------|-------|
+| Screenshot | ✅ | ✅ |
+| Mouse/Keyboard | ✅ | ✅ |
+| Window Management | ✅ | ✅ |
+| Accessibility API | ✅ | ✅ |
+| Selenium/Web | ✅ | ✅ |
+| Terminal | ✅ | ✅ |
+
+### macOS Permissions
+System Preferences → Security & Privacy → Privacy:
+- **Screen Recording** → Allow Terminal
+- **Accessibility** → Allow Terminal
+
+---
+
+## File Structure
 
 ```
 claude_desktop_bridge/
-├── bridge.py           # Main application
-├── command.json        # Command file
-├── result.json         # Result file
-├── requirements.txt    # Dependencies
-├── README.md           # This file
-├── start.sh            # macOS/Linux launcher
-├── start.bat           # Windows launcher
-├── screenshots/        # Screenshot folder
-│   ├── reference.jpg
-│   ├── latest.jpg
-│   └── region.jpg
-└── venv/               # Virtual environment
+├── bridge.py           # Main dispatcher
+├── plugins/            # Action handlers
+│   ├── screenshot.py
+│   ├── mouse.py
+│   ├── keyboard.py
+│   ├── window.py
+│   ├── accessibility.py
+│   ├── system.py
+│   └── web.py          # Selenium
+├── tasks/              # Saved workflows
+├── screenshots/        # Output images
+├── command.json        # Input (Claude writes)
+├── result.json         # Output (Bridge writes)
+└── requirements.txt
 ```
 
-## 🔄 Typical Workflow
+---
 
-```json
-// 1. Launch GUI application
-{"action": "terminal_run", "params": {"command": "conda activate myenv && python app.py", "cwd": "..."}}
+## Security
 
-// 2. Get UI elements (NO screenshot!)
-{"action": "get_ui_elements", "params": {"app": "python"}}
+- 🏠 **Localhost only** - No network exposure
+- 🛑 **Failsafe** - Move mouse to corner to stop
+- 👁️ **Transparent** - All actions logged to console
+- 🔒 **Your control** - Claude can only do what you allow
 
-// 3. Click button (NO coordinates!)
-{"action": "click_element", "params": {"app": "python", "element": "Start"}}
+---
 
-// 4. (Optional) See result
-{"action": "screenshot", "params": {"mode": "full"}}
-```
+## Version History
 
-## 🔒 Security
+| Version | Highlights |
+|---------|------------|
+| **0.7.0** | Plugin architecture, Selenium web automation, Task system |
+| 0.6.0 | Accessibility API, click by element name |
+| 0.5.0 | Window management, terminal integration |
+| 0.4.0 | Coordinate conversion for HiDPI displays |
+| 0.3.0 | Unicode support |
+| 0.2.0 | Smart screenshot compression |
+| 0.1.0 | Initial release |
 
-- Localhost only access
-- FAILSAFE enabled (mouse to corner = stop)
-- No external network access
+---
 
-## 📊 Version History
+## Contributing
 
-| Version | Features |
-|---------|----------|
-| v0.6.0 | Accessibility API, get_ui_elements, click_element |
-| v0.5.0 | window_move, scroll_app, terminal_run |
-| v0.4.0 | screenshot_coords, coordinate conversion |
-| v0.3.0 | Unicode support, clipboard typing |
-| v0.2.0 | Smart screenshots, JPEG optimization |
-| v0.1.0 | Initial release |
+PRs welcome! Ideas for new plugins:
+- Audio control
+- Clipboard management  
+- File system operations
+- OCR integration
 
-## 📄 License
+---
 
-MIT
+## License
+
+MIT License - Use freely, attribution appreciated.
+
+---
+
+**Made with 🤝 by a human and Claude working together**
